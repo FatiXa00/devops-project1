@@ -52,7 +52,7 @@ jobs:
 
       - name: Deploy to Kali VM
         run: |
-          ssh -o StrictHostKeyChecking=no kali@192.168.60.130 << 'EOF'
+          ssh -o StrictHostKeyChecking=no kali@192.168.1.113 << 'EOF'
             docker pull fatixa/devops-app:latest
             docker stop devops-app || true
             docker rm devops-app || true
