@@ -1,16 +1,19 @@
-name: CI/CD Pipeline
+name: CI - Build and Test
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
-    runs-on: self-hosted # This job runs on your Kali VM
+  build:
+    runs-on: self-hosted
 
     steps:
-      # 1️⃣ Checkout your code
+      # 1️⃣ Checkout code
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -26,23 +29,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4️⃣ Test Flask import
+      # 4️⃣ Run tests
       - name: Test Flask App
-        run: python -c "import flask; print('Flask imported successfully!')"
+        run: |
+          python -c "import flask; print('✅ Flask imported successfully!')"
+          # Ajoute d'autres tests ici plus tard (pytest, etc.)
 
-      # 5️⃣ Build Docker image
-      - name: Build Docker image
-        run: docker build -t devops-app .
-
-      # 6️⃣ Log in to Docker Hub
+      # 5️⃣ Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # 6️⃣ Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-app:latest .
+          docker tag ${{ secrets.DOCKER_USERNAME }}/devops-app:latest \
+                     ${{ secrets.DOCKER_USERNAME }}/devops-app:${{ github.sha }}
+
       # 7️⃣ Push Docker image to Docker Hub
       - name: Push Docker image
         run: |
-          docker tag devops-app ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/devops-app:${{ github.sha }}
+
+      # 8️⃣ Summary
+      - name: Build Summary
+        run: |
+          echo "✅ CI Pipeline completed successfully!"
+          echo "🐳 Docker image: ${{ secrets.DOCKER_USERNAME }}/devops-app:latest"
+          echo "📝 Commit SHA: ${{ github.sha }}"

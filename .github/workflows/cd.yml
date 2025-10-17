@@ -1,60 +1,78 @@
-name: CI/CD Pipeline
+name: CD - Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI - Build and Test"]
+    types:
+      - completed
     branches:
       - main
 
 jobs:
-  build:
-    runs-on: self-hosted # This job runs on your Kali VM
-    steps:
-      - uses: actions/checkout@v3
-
-      # Python / Flask setup steps here...
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      # Build Docker image
-      - name: Build Docker image
-        run: docker build -t devops-app .
-
-      # Docker Hub login & push (your previous CI step)
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Push Docker image
-        run: |
-          docker tag devops-app ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
-
   deploy:
-    runs-on: self-hosted # This job runs on your Kali VM
-    needs: build
+    runs-on: self-hosted
+    # Ne déploie que si le CI a réussi
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
-      - name: Checkout code
+      # 1️⃣ Checkout code (optionnel pour le CD, mais utile pour les logs)
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Setup SSH Agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
-
-      - name: Deploy to Kali VM
+      # 2️⃣ Stop old container
+      - name: Stop old container
         run: |
-          ssh -o StrictHostKeyChecking=no kali@192.168.1.113 << 'EOF'
-            docker pull fatixa/devops-app:latest
-            docker stop devops-app || true
-            docker rm devops-app || true
-            docker run -d -p 5001:5001 --name devops-app fatixa/devops-app:latest
-          EOF
+          docker stop devops-app 2>/dev/null || true
+          docker rm devops-app 2>/dev/null || true
+          echo "🗑️ Old container removed"
+
+      # 3️⃣ Pull latest image
+      - name: Pull latest Docker image
+        run: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
+          echo "📦 Latest image pulled"
+
+      # 4️⃣ Deploy new container
+      - name: Deploy new container
+        run: |
+          docker run -d \
+            --name devops-app \
+            -p 5000:5000 \
+            --restart unless-stopped \
+            ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
+          
+          echo "🚀 New container deployed!"
+          echo "🌐 App running at: http://192.168.1.113:5000"
+
+      # 5️⃣ Health check
+      - name: Health Check
+        run: |
+          echo "⏳ Waiting for app to start..."
+          sleep 10
+          
+          # Test avec curl
+          if curl -f http://localhost:5000; then
+            echo "✅ Health check PASSED!"
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Health check FAILED!"
+            exit 1
+          fi
+
+      # 6️⃣ Clean up old images
+      - name: Clean up old Docker images
+        run: |
+          docker image prune -f
+          echo "🧹 Old images cleaned"
+
+      # 7️⃣ Deployment summary
+      - name: Deployment Summary
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🌐 URL: http://192.168.1.113:5000"
+          echo "📦 Image: ${{ secrets.DOCKER_USERNAME }}/devops-app:latest"
+          echo "🕐 Time: $(date)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+ 
