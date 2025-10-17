@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted # This job runs on your Kali VM
     steps:
       - uses: actions/checkout@v3
 
@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.13.7'
 
       - name: Install dependencies
         run: |
@@ -39,7 +39,7 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/devops-app:latest
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted # This job runs on your Kali VM
     needs: build
     steps:
       - name: Checkout code
