@@ -62,7 +62,7 @@ jobs:
           # Test avec curl (avec retry)
           for i in {1..5}; do
             echo "Attempt $i/5..."
-            if curl -f http://localhost:5000; then
+            if curl -f http://localhost:5001; then
               echo "✅ Health check PASSED!"
               exit 0
             fi
@@ -85,7 +85,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🌐 URL: http://192.168.1.113:5000"
+          echo "🌐 URL: http://192.168.1.113:5001"
           echo "📦 Image: ${{ secrets.DOCKER_USERNAME }}/devops-app:latest"
           echo "🕐 Time: $(date)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
