@@ -48,16 +48,30 @@ jobs:
       - name: Health Check
         run: |
           echo "⏳ Waiting for app to start..."
-          sleep 10
+          sleep 15  # ← Augmenté de 10 à 15 secondes
           
-          # Test avec curl
-          if curl -f http://localhost:5000; then
-            echo "✅ Health check PASSED!"
-            echo "✅ Deployment successful!"
+          # Vérifier que le conteneur tourne
+          if docker ps | grep -q devops-app; then
+            echo "✅ Container is running"
           else
-            echo "❌ Health check FAILED!"
+            echo "❌ Container is not running!"
+            docker logs devops-app
             exit 1
           fi
+          
+          # Test avec curl (avec retry)
+          for i in {1..5}; do
+            echo "Attempt $i/5..."
+            if curl -f http://localhost:5000; then
+              echo "✅ Health check PASSED!"
+              exit 0
+            fi
+            sleep 3
+          done
+          
+          echo "❌ Health check FAILED after 5 attempts!"
+          docker logs devops-app
+          exit 1
 
       # 6️⃣ Clean up old images
       - name: Clean up old Docker images
