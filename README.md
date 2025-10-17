@@ -11,8 +11,8 @@ It serves as a hands-on example of how to build, test, containerize, and deploy 
 - **Docker** → Containerization  
 - **GitHub Actions** → CI/CD automation  
 - **Kali Linux VM (VMware)** → Deployment server  
-- **NAT/Bridged Network** → For network accessibility between host and VM  
-- **curl** → Testing endpoints  
+- **Self-hosted GitHub Runner** → CI/CD execution on local VM
+- **Bridged Network** → VM accessible on local network  
 
 ---
 
@@ -27,10 +27,11 @@ The `ci.yml` workflow is triggered on each push or pull request to:
 
 ### 🚀 Continuous Deployment (CD)
 The `cd.yml` workflow automatically:
-1. Connects to your **remote Kali VM** via SSH  
-2. Pulls the latest Docker image  
-3. Stops any existing container  
-4. Starts a new container using the latest version
+1. Waits for CI to complete successfully
+2. Pulls the latest Docker image from Docker Hub
+3. Stops and removes any existing container  
+4. Deploys new container on the self-hosted runner
+5. Runs health checks to verify deployment
 
  
 ## 🐍 Run Locally
@@ -77,17 +78,47 @@ docker ps
 ```
 curl http://localhost:5001
 ```
+## 🤖 Self-Hosted Runner Setup
+
+This project uses a **self-hosted GitHub Actions runner** on the Kali VM.
+
+### Setup Steps:
+```bash
+# 1. Create runner directory
+mkdir actions-runner && cd actions-runner
+
+# 2. Download runner
+curl -o actions-runner-linux-x64-2.329.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.329.0/actions-runner-linux-x64-2.329.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.329.0.tar.gz
+
+# 3. Configure runner
+./config.sh --url https://github.com/FatiXa00/devops-project1 --token YOUR_TOKEN
+
+# 4. Install as service
+sudo ./svc.sh install
+sudo ./svc.sh start
+sudo ./svc.sh status
+```
+
+### Allow Docker without sudo:
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
 ## 🌐 Access from Host (VM Network Setup)
-Depending on your VMware network configuration, you can access the Flask application from your host machine.
+- Depending on your VMware network configuration, you can access the Flask application from your host machine.
+- 
+- - If your VM is on NAT mode:
+-   The container listens on 0.0.0.0:5001.
+-   Access inside the VM at http://127.0.0.1:5001.
+-   Note: Direct access from the host to the VM's application port in NAT mode might require port forwarding configured in VMware.
+- 
+- - If your VM is on Bridged mode:
 
-- If your VM is on NAT mode:
-  The container listens on 0.0.0.0:5001.
-  Access inside the VM at http://127.0.0.1:5001.
-  Note: Direct access from the host to the VM's application port in NAT mode might require port forwarding configured in VMware.
++ The VM is configured in **Bridged mode** and has a local network IP.
 
-- If your VM is on Bridged mode:
-  The VM will get an IP address on your local network.
-  Get the VM IP:
+Get the VM IP:
 ```
 ip a
 ```
@@ -97,7 +128,7 @@ curl http://<vm-ip>:5001
 ```
 Example:
 ```
-curl http://192.168.60.130:5001
+curl http://192.168.1.113:5001
 ```
 ## ⚙️ Useful Docker Commands
 
@@ -132,6 +163,23 @@ You can then visit:
 📸 Example Output
 ```
 Hello, DevOps World!
+```
+## 🐛 Troubleshooting
+
+**Issue: `externally-managed-environment` error**
+```bash
+pip3 install --break-system-packages -r requirements.txt
+```
+
+**Check container logs:**
+```bash
+docker logs devops-app
+```
+
+**Verify runner status:**
+```bash
+cd ~/actions-runner
+sudo ./svc.sh status
 ```
 ## 🧾 License
 This project is open-source under the MIT License. See the LICENSE file for details.
